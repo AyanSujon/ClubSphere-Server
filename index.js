@@ -184,108 +184,6 @@ async function run() {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-    // Payment Related Apis 
-    app.post('/payment-checkout-session', async (req, res) => {
-      const paymentInfo = req.body;
-      console.log(paymentInfo);
-      const amount = parseInt(paymentInfo.cost) * 100;
-      const session = await stripe.checkout.sessions.create({
-        line_items: [
-          {
-
-            price_data: {
-              currency: 'USD',
-              unit_amount: amount,
-              product_data: {
-                name: paymentInfo.eventTitle
-              }
-            },
-
-            quantity: 1,
-          },
-        ],
-        customer_email: paymentInfo.userEmail,
-        mode: 'payment',
-        metadata: {
-          eventId: paymentInfo.eventId,
-          
-
-
-        },
-        success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled`,
-      })
-
-      console.log(session);
-      res.send({ url: session.url });
-    })
-
-
-
-
-
-
-    // Payment success api
-    app.patch('/payment-success', async (req, res) => {
-      const sessionId = req.query.session_id;
-      // console.log(`session Id: `, sessionId);
-
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-      console.log(`session retrives: `, session)
-      if (session.payment_status === 'paid') {
-        const id = session.metadata.eventId;
-        const query = { _id: new Object(id) };
-        const update = {
-          $set:{
-            paymentStatus: 'paid',
-            
-          }
-        }
-        const result = await paymentCollection.insertOne()
-      }
-      res.send({success: true})
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      res.send({ success: true });
-    })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     // POST: Register for an event
     app.post("/event-registrations", async (req, res) => {
       try {
@@ -324,6 +222,145 @@ async function run() {
         res.status(500).send({ message: "Internal server error", error });
       }
     });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // Payment Related Apis 
+    app.post('/payment-checkout-session', async (req, res) => {
+      const paymentInfo = req.body;
+
+      console.log(paymentInfo);
+      const amount = parseInt(paymentInfo.amount) * 100;
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+
+            price_data: {
+              currency: 'USD',
+              unit_amount: amount,
+              product_data: {
+                name: paymentInfo.eventTitle
+              }
+            },
+
+            quantity: 1,
+          },
+        ],
+        customer_email: paymentInfo.userEmail,
+        mode: 'payment',
+        metadata: {
+          userEmail: paymentInfo.userEmail,
+          amount: paymentInfo.amount,
+          type: paymentInfo.type,
+          clubId: paymentInfo.clubId,
+          eventId: paymentInfo.eventId,
+          transactionId: null,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+          eventTitle: paymentInfo.eventTitle,
+
+        },
+        success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled`,
+      })
+
+      console.log(session);
+      res.send({ url: session.url });
+    })
+
+
+
+
+
+
+    // // Payment success api
+    // app.patch('/payment-success', async (req, res) => {
+    //   const sessionId = req.query.session_id;
+    //   // console.log(`session Id: `, sessionId);
+
+    //   const session = await stripe.checkout.sessions.retrieve(sessionId);
+    //   console.log(`session retrives: `, session)
+    //   if (session.payment_status === 'paid') {
+    //     const id = session.metadata.eventId;
+    //     const query = { _id: new Object(id) };
+    //     const update = {
+    //       $set: {
+    //         paymentStatus: 'paid',
+
+    //       }
+    //     }
+    //     const result = await paymentCollection.insertOne()
+    //   }
+    //   res.send({ success: true })
+    //   res.send({ success: true });
+    // })
+
+
+
+
+app.patch('/payment-success', async (req, res) => {
+  try {
+    const sessionId = req.query.session_id;
+
+    // Stripe থেকে সেশন ডিটেইল আনা
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    console.log("Stripe Session:", session);
+
+    if (session.payment_status === 'paid') {
+      
+      // Stripe checkout এর সময় metadata তে যা পাঠিয়েছিলে তা ফেরত পাওয়া যায়
+      const paymentInfo = {
+        userEmail: session.metadata.userEmail,
+        amount: session.metadata.amount,
+        eventId: session.metadata.eventId,
+        eventTitle: session.metadata.eventTitle,
+        clubId: session.metadata.clubId,
+        transactionId: sessionId,
+        status: "paid",
+        paidAt: new Date(),
+      };
+
+      // Insert into MongoDB paymentCollection
+      const saveResult = await paymentCollection.insertOne(paymentInfo);
+
+      console.log("Payment Saved:", saveResult);
+
+      return res.send({
+        success: true,
+        message: "Payment saved successfully",
+        paymentInfo,
+      });
+    }
+
+    res.status(400).send({ success: false, message: "Payment not completed" });
+
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Payment success API error",
+      error: error.message,
+    });
+  }
+});
+
+
+
+
+
+
 
 
 
