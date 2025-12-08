@@ -315,13 +315,13 @@ app.patch('/payment-success', async (req, res) => {
   try {
     const sessionId = req.query.session_id;
 
-    // Stripe থেকে সেশন ডিটেইল আনা
+   
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     console.log("Stripe Session:", session);
 
     if (session.payment_status === 'paid') {
       
-      // Stripe checkout এর সময় metadata তে যা পাঠিয়েছিলে তা ফেরত পাওয়া যায়
+     
       const paymentInfo = {
         userEmail: session.metadata.userEmail,
         amount: session.metadata.amount,
@@ -333,7 +333,7 @@ app.patch('/payment-success', async (req, res) => {
         paidAt: new Date(),
       };
 
-      // Insert into MongoDB paymentCollection
+      
       const saveResult = await paymentCollection.insertOne(paymentInfo);
 
       console.log("Payment Saved:", saveResult);
