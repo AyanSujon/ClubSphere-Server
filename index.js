@@ -42,6 +42,7 @@ async function run() {
     const clubsCollection = db.collection('clubs');
     const eventsCollection = db.collection('events');
     const eventRegistrationsCollection = db.collection('eventRegistrations');
+    const paymentCollection = db.collection('payments');
 
 
 
@@ -59,7 +60,7 @@ async function run() {
       // user.role = 'user';
       // user.createdAt = new Date();
       user.role = 'member',
-      user.createdAt = new Date().toISOString() // <-- dynamic timestamp
+        user.createdAt = new Date().toISOString() // <-- dynamic timestamp
       const email = user.email;
       const userExists = await usersCollection.findOne({ email })
       console.log("user data: ", user)
@@ -76,23 +77,23 @@ async function run() {
 
 
 
-// Recently Added Clubs API
-app.get('/clubs', async (req, res) => {
-    try {
+    // Recently Added Clubs API
+    app.get('/clubs', async (req, res) => {
+      try {
         const query = {};
         const { category, location, managerEmail } = req.query;
 
         // Optional filters
         if (category) {
-            query.category = category;
+          query.category = category;
         }
 
         if (location) {
-            query.location = location;
+          query.location = location;
         }
 
         if (managerEmail) {
-            query.managerEmail = managerEmail;
+          query.managerEmail = managerEmail;
         }
 
         // Sort by newest first
@@ -102,58 +103,58 @@ app.get('/clubs', async (req, res) => {
         const result = await cursor.toArray();
 
         res.status(200).send(result);
-    } catch (error) {
+      } catch (error) {
         console.error("Failed to fetch clubs:", error);
         res.status(500).send({ message: "Failed to fetch clubs" });
-    }
-});
+      }
+    });
 
 
 
 
-// // Upcoming Events API
-// app.get('/events/upcoming', async (req, res) => {
-//     try {
-//         const query = {};
-//         const { clubId, isPaid, location } = req.query;
+    // // Upcoming Events API
+    // app.get('/events/upcoming', async (req, res) => {
+    //     try {
+    //         const query = {};
+    //         const { clubId, isPaid, location } = req.query;
 
-//         // Filter by clubId
-//         if (clubId) {
-//             query.clubId = clubId;
-//         }
+    //         // Filter by clubId
+    //         if (clubId) {
+    //             query.clubId = clubId;
+    //         }
 
-//         // Filter by paid/free events
-//         if (isPaid) {
-//             query.isPaid = isPaid === "true"; // convert string → boolean
-//         }
+    //         // Filter by paid/free events
+    //         if (isPaid) {
+    //             query.isPaid = isPaid === "true"; // convert string → boolean
+    //         }
 
-//         // Filter by location
-//         if (location) {
-//             query.location = location;
-//         }
+    //         // Filter by location
+    //         if (location) {
+    //             query.location = location;
+    //         }
 
-//         // Only future events
-//         query.eventDate = { $gte: new Date() };
+    //         // Only future events
+    //         query.eventDate = { $gte: new Date() };
 
-//         // Sort by nearest upcoming
-//         const options = { sort: { eventDate: 1 } };
+    //         // Sort by nearest upcoming
+    //         const options = { sort: { eventDate: 1 } };
 
-//         const cursor = eventsCollection.find(query, options);
-//         const result = await cursor.toArray();
+    //         const cursor = eventsCollection.find(query, options);
+    //         const result = await cursor.toArray();
 
-//         res.status(200).send(result);
-//     } catch (error) {
-//         console.error("Failed to fetch upcoming events:", error);
-//         res.status(500).send({ message: "Failed to fetch upcoming events" });
-//     }
-// });
-
-
+    //         res.status(200).send(result);
+    //     } catch (error) {
+    //         console.error("Failed to fetch upcoming events:", error);
+    //         res.status(500).send({ message: "Failed to fetch upcoming events" });
+    //     }
+    // });
 
 
-// Upcoming Events API
-app.get('/events/upcoming', async (req, res) => {
-    try {
+
+
+    // Upcoming Events API
+    app.get('/events/upcoming', async (req, res) => {
+      try {
         const query = {};
         const { clubId, isPaid, location } = req.query;
 
@@ -171,11 +172,11 @@ app.get('/events/upcoming', async (req, res) => {
         const events = await eventsCollection.find(query, options).toArray();
         res.send(events);
 
-    } catch (err) {
+      } catch (err) {
         console.error(err);
         res.status(500).send({ message: "Failed to fetch upcoming events" });
-    }
-});
+      }
+    });
 
 
 
@@ -202,7 +203,7 @@ app.get('/events/upcoming', async (req, res) => {
       const session = await stripe.checkout.sessions.create({
         line_items: [
           {
-          
+
             price_data: {
               currency: 'USD',
               unit_amount: amount,
@@ -210,21 +211,65 @@ app.get('/events/upcoming', async (req, res) => {
                 name: paymentInfo.eventTitle
               }
             },
-           
+
             quantity: 1,
           },
         ],
-         customer_email: paymentInfo.userEmail, 
+        customer_email: paymentInfo.userEmail,
         mode: 'payment',
         metadata: {
-          parcelId: paymentInfo.eventId 
+          eventId: paymentInfo.eventId,
+          
+
+
         },
         success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled`,
       })
 
       console.log(session);
-      res.send({url: session.url});
+      res.send({ url: session.url });
+    })
+
+
+
+
+
+
+    // Payment success api
+    app.patch('/payment-success', async (req, res) => {
+      const sessionId = req.query.session_id;
+      // console.log(`session Id: `, sessionId);
+
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      console.log(`session retrives: `, session)
+      if (session.payment_status === 'paid') {
+        const id = session.metadata.eventId;
+        const query = { _id: new Object(id) };
+        const update = {
+          $set:{
+            paymentStatus: 'paid',
+            
+          }
+        }
+        const result = await paymentCollection.insertOne()
+      }
+      res.send({success: true})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      res.send({ success: true });
     })
 
 
@@ -241,52 +286,44 @@ app.get('/events/upcoming', async (req, res) => {
 
 
 
-
-
-
-
-
-
-
-
     // POST: Register for an event
-app.post("/event-registrations", async (req, res) => {
-  try {
-    const registration = req.body;
-    const { eventId, userEmail } = registration;
+    app.post("/event-registrations", async (req, res) => {
+      try {
+        const registration = req.body;
+        const { eventId, userEmail } = registration;
 
-    // Validate required fields
-    if (!eventId || !userEmail) {
-      return res.status(400).send({ message: "Missing required fields." });
-    }
+        // Validate required fields
+        if (!eventId || !userEmail) {
+          return res.status(400).send({ message: "Missing required fields." });
+        }
 
-    // Prevent duplicate registration
-    const existing = await eventRegistrationsCollection.findOne({
-      eventId,
-      userEmail,
+        // Prevent duplicate registration
+        const existing = await eventRegistrationsCollection.findOne({
+          eventId,
+          userEmail,
+        });
+
+        if (existing) {
+          return res.status(409).send({ message: "Already registered." });
+        }
+
+        // Add server timestamp if not provided
+        registration.registeredAt = registration.registeredAt || new Date();
+
+        // Insert into DB
+        const result = await eventRegistrationsCollection.insertOne(registration);
+
+        res.send({
+          success: true,
+          message: "Event registered successfully!",
+          data: result,
+        });
+
+      } catch (error) {
+        console.error("Event Registration Error →", error);
+        res.status(500).send({ message: "Internal server error", error });
+      }
     });
-
-    if (existing) {
-      return res.status(409).send({ message: "Already registered." });
-    }
-
-    // Add server timestamp if not provided
-    registration.registeredAt = registration.registeredAt || new Date();
-
-    // Insert into DB
-    const result = await eventRegistrationsCollection.insertOne(registration);
-
-    res.send({
-      success: true,
-      message: "Event registered successfully!",
-      data: result,
-    });
-
-  } catch (error) {
-    console.error("Event Registration Error →", error);
-    res.status(500).send({ message: "Internal server error", error });
-  }
-});
 
 
 
