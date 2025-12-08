@@ -9,6 +9,8 @@ const cors = require('cors');
 const app = express()
 require('dotenv').config()
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const stripe = require('stripe')(process.env.STRIPE_SECRET);
+
 const port = process.env.PORT || 3000
 
 
@@ -193,7 +195,7 @@ app.get('/events/upcoming', async (req, res) => {
 
 
     // Payment Related Apis 
-    app.post('/register-event-checkout-session', async (req, res) => {
+    app.post('/payment-checkout-session', async (req, res) => {
       const paymentInfo = req.body;
       console.log(paymentInfo);
       const amount = parseInt(paymentInfo.cost) * 100;
@@ -205,7 +207,7 @@ app.get('/events/upcoming', async (req, res) => {
               currency: 'USD',
               unit_amount: amount,
               product_data: {
-                name: paymentInfo.eventName
+                name: paymentInfo.eventTitle
               }
             },
            
@@ -217,8 +219,8 @@ app.get('/events/upcoming', async (req, res) => {
         metadata: {
           parcelId: paymentInfo.eventId 
         },
-        success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-cancelled`,
+        success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled`,
       })
 
       console.log(session);
