@@ -312,67 +312,81 @@ async function run() {
 
 
 
-    // app.patch('/payment-success', async (req, res) => {
-    //   try {
-    //     const sessionId = req.query.session_id;
-
-
-    //     const session = await stripe.checkout.sessions.retrieve(sessionId);
-    //     console.log("Stripe Session:", session);
-
-    //     if (session.payment_status === 'paid') {
-
-    //       // Save Payment Info
-    //       const paymentInfo = {
-    //         userEmail: session.metadata.userEmail,
-    //         amount: session.metadata.amount,
-    //         eventId: session.metadata.eventId,
-    //         eventTitle: session.metadata.eventTitle,
-    //         clubId: session.metadata.clubId,
-    //         transactionId: sessionId,
-    //         status: "paid",
-    //         paidAt: new Date(),
-    //       };
-
-
-    //       const saveResult = await paymentCollection.insertOne(paymentInfo);
-
-    //       console.log("Payment Saved:", saveResult);
-
-    //       //  Save Event Registration
-    //       const registration = {
-    //         eventId: session.metadata.eventId,
-    //         userEmail: session.metadata.userEmail,
-    //         clubId: session.metadata.clubId,
-    //         status: "registered",
-    //         paymentId: session.payment_intent,
-    //         registeredAt: new Date().toISOString(),
-    //       };
-
-    //       const registrationResult = await eventRegistrationsCollection.insertOne(registration);
-    //       console.log("Registration Saved:", registrationResult);
 
 
 
-    //       return res.send({
-    //         success: true,
-    //         message: "Payment saved successfully",
-    //         paymentInfo,
-    //         registrationInfo: registrationResult,
-    //       });
-    //     }
 
-    //     res.status(400).send({ success: false, message: "Payment not completed" });
+// app.patch('/payment-success', async (req, res) => {
+//   try {
+//     const sessionId = req.query.session_id;
 
-    //   } catch (error) {
-    //     res.status(500).send({
-    //       success: false,
-    //       message: "Payment success API error",
-    //       error: error.message,
-    //     });
-    //   }
-    // });
+//     const session = await stripe.checkout.sessions.retrieve(sessionId);
+//     console.log("Stripe Session:", session);
 
+//     if (session.payment_status === 'paid') {
+
+//       // Prepare Payment Info
+//       const paymentInfo = {
+//         userEmail: session.metadata.userEmail,
+//         amount: session.metadata.amount,
+//         eventId: session.metadata.eventId,
+//         eventTitle: session.metadata.eventTitle,
+//         clubId: session.metadata.clubId,
+//         transactionId: sessionId,
+//         status: "paid",
+//         paidAt: new Date(),
+//       };
+
+//       // Check if payment already exists
+//       let saveResult = await paymentCollection.findOne({ transactionId: sessionId });
+//       if (!saveResult) {
+//         saveResult = await paymentCollection.insertOne(paymentInfo);
+//         console.log("Payment Saved:", saveResult);
+//       } else {
+//         console.log("Payment already exists:", saveResult);
+//       }
+
+//       // Prepare Event Registration
+//       const registration = {
+//         eventId: session.metadata.eventId,
+//         userEmail: session.metadata.userEmail,
+//         clubId: session.metadata.clubId,
+//         status: "registered",
+//         paymentId: session.payment_intent,
+//         registeredAt: new Date().toISOString(),
+//       };
+
+//       // Check if registration already exists
+//       let registrationResult = await eventRegistrationsCollection.findOne({
+//         eventId: session.metadata.eventId,
+//         userEmail: session.metadata.userEmail,
+//       });
+
+//       if (!registrationResult) {
+//         registrationResult = await eventRegistrationsCollection.insertOne(registration);
+//         console.log("Registration Saved:", registrationResult);
+//       } else {
+//         console.log("Registration already exists:", registrationResult);
+//       }
+
+//       return res.send({
+//         success: true,
+//         message: "Payment saved successfully",
+//         paymentInfo,
+//         registrationInfo: registrationResult,
+//       });
+//     }
+
+//     res.status(400).send({ success: false, message: "Payment not completed" });
+
+//   } catch (error) {
+//     res.status(500).send({
+//       success: false,
+//       message: "Payment success API error",
+//       error: error.message,
+//     });
+//   }
+// });
 
 
 
@@ -399,14 +413,13 @@ app.patch('/payment-success', async (req, res) => {
         paidAt: new Date(),
       };
 
-      // Check if payment already exists
-      let saveResult = await paymentCollection.findOne({ transactionId: sessionId });
-      if (!saveResult) {
-        saveResult = await paymentCollection.insertOne(paymentInfo);
-        console.log("Payment Saved:", saveResult);
-      } else {
-        console.log("Payment already exists:", saveResult);
-      }
+      // Upsert Payment (insert if not exists)
+      const paymentResult = await paymentCollection.updateOne(
+        { transactionId: sessionId },   // filter
+        { $setOnInsert: paymentInfo },   // insert only if doesn't exist
+        { upsert: true }
+      );
+      console.log("Payment Result:", paymentResult);
 
       // Prepare Event Registration
       const registration = {
@@ -414,28 +427,23 @@ app.patch('/payment-success', async (req, res) => {
         userEmail: session.metadata.userEmail,
         clubId: session.metadata.clubId,
         status: "registered",
-        paymentId: session.payment_intent,
+        paymentId: sessionId, // Use transactionId to uniquely link
         registeredAt: new Date().toISOString(),
       };
 
-      // Check if registration already exists
-      let registrationResult = await eventRegistrationsCollection.findOne({
-        eventId: session.metadata.eventId,
-        userEmail: session.metadata.userEmail,
-      });
-
-      if (!registrationResult) {
-        registrationResult = await eventRegistrationsCollection.insertOne(registration);
-        console.log("Registration Saved:", registrationResult);
-      } else {
-        console.log("Registration already exists:", registrationResult);
-      }
+      // Upsert Registration to avoid duplicates
+      const registrationResult = await eventRegistrationsCollection.updateOne(
+        { eventId: session.metadata.eventId, userEmail: session.metadata.userEmail },
+        { $setOnInsert: registration },
+        { upsert: true }
+      );
+      console.log("Registration Result:", registrationResult);
 
       return res.send({
         success: true,
-        message: "Payment saved successfully",
+        message: "Payment and registration processed successfully",
         paymentInfo,
-        registrationInfo: registrationResult,
+        registrationInfo: registration,
       });
     }
 
@@ -449,11 +457,6 @@ app.patch('/payment-success', async (req, res) => {
     });
   }
 });
-
-
-
-
-
 
 
 
@@ -633,6 +636,115 @@ app.post('/payment-club-membership', async (req, res) => {
 //     });
 //   }
 // });
+
+
+
+
+
+
+
+
+
+
+
+// Club Membership Payment Success API
+app.patch('/club-membership-payment-success', async (req, res) => {
+  try {
+    const sessionId = req.query.session_id;
+
+    if (!sessionId) {
+      return res.status(400).send({ success: false, message: "Session ID is required" });
+    }
+
+    // Retrieve Stripe session
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    console.log("Stripe Session:", session);
+
+    if (session.payment_status === 'paid') {
+      // Prepare payment info for payments collection
+      const paymentInfo = {
+        userEmail: session.metadata.userEmail,
+        amount: session.metadata.cost,
+        clubId: session.metadata.clubId,
+        category: session.metadata.category,
+        transactionId: sessionId,
+        paymentType: session.metadata.paymentType, // club-membership
+        status: "paid",
+        paidAt: new Date(),
+      };
+
+      // Save payment info if not already exists
+      let savedPayment = await paymentCollection.findOne({ transactionId: sessionId });
+      if (!savedPayment) {
+        savedPayment = await paymentCollection.insertOne(paymentInfo);
+        console.log("Payment saved:", savedPayment);
+      } else {
+        console.log("Payment already exists:", savedPayment);
+      }
+
+      // Prepare club membership record
+      const clubMembership = {
+        userEmail: session.metadata.userEmail,
+        clubId: session.metadata.clubId,
+        clubName: session.metadata.clubName || "",
+        category: session.metadata.category,
+        managerEmail: session.metadata.managerEmail,
+        bannerImage: session.metadata.bannerImage,
+        location: session.metadata.location,
+        description: session.metadata.description,
+        paymentId: session.payment_intent,
+        status: "active",
+        joinedAt: new Date(),
+      };
+
+      // Check if membership already exists
+      let savedMembership = await clubMembershipCollection.findOne({
+        userEmail: session.metadata.userEmail,
+        clubId: session.metadata.clubId,
+      });
+
+      if (!savedMembership) {
+        savedMembership = await clubMembershipCollection.insertOne(clubMembership);
+        console.log("Club membership saved:", savedMembership);
+      } else {
+        console.log("Club membership already exists:", savedMembership);
+      }
+
+      return res.send({
+        success: true,
+        message: "Club membership payment saved successfully",
+        paymentInfo,
+        clubMembershipInfo: savedMembership,
+      });
+    }
+
+    res.status(400).send({ success: false, message: "Payment not completed" });
+
+  } catch (error) {
+    console.error("Club Membership Payment Success Error:", error);
+    res.status(500).send({
+      success: false,
+      message: "Error in club membership payment success API",
+      error: error.message,
+    });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
