@@ -42,6 +42,7 @@ async function run() {
     const clubsCollection = db.collection('clubs');
     const eventsCollection = db.collection('events');
     const eventRegistrationsCollection = db.collection('eventRegistrations');
+    const clubMembershipCollection = db.collection('clubMembership');
     const paymentCollection = db.collection('payments');
 
 
@@ -371,6 +372,109 @@ async function run() {
         });
       }
     });
+
+
+
+
+
+// Club Membership api
+// Payment: Club Membership Checkout Session
+app.post('/payment-club-membership', async (req, res) => {
+  try {
+    const paymentInfo = req.body;
+    console.log("Club Payment Info:", paymentInfo);
+
+    // Convert membership fee
+    const amount = parseInt(paymentInfo.cost) * 100;
+
+    // Create Stripe Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      line_items: [
+        {
+          price_data: {
+            currency: 'USD',
+            unit_amount: amount,
+            product_data: {
+              name: `${paymentInfo.clubName} - Club Membership`,
+            }
+          },
+          quantity: 1,
+        },
+      ],
+
+      customer_email: paymentInfo.userEmail,
+      mode: 'payment',
+
+      metadata: {
+        userEmail: paymentInfo.userEmail,
+        clubId: paymentInfo.clubId,
+        category: paymentInfo.category,
+        managerEmail: paymentInfo.managerEmail,
+        cost: paymentInfo.cost,
+        type: paymentInfo.type, // "club-membership"
+        bannerImage: paymentInfo.bannerImage,
+        location: paymentInfo.location,
+        description: paymentInfo.description,
+        createdAt: paymentInfo.createdAt,
+        status: "pending"
+      },
+
+      success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled`,
+    });
+
+    console.log("Stripe Session:", session);
+
+    // Send Checkout URL to frontend
+    res.send({ url: session.url });
+
+  } catch (error) {
+    console.error("Payment Error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
