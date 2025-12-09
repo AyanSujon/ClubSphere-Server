@@ -739,7 +739,68 @@ app.patch('/club-membership-payment-success', async (req, res) => {
 
 
 
+// ============================================ Admin Dashboard Data ========================================
 
+app.get('/admin-overview', async (req, res) => {
+  try {
+
+    // 1. USERS
+    const totalUsers = await usersCollection.countDocuments();
+
+    // 2. CLUBS
+    const totalClubs = await clubsCollection.countDocuments();
+    const pendingClubs = await clubsCollection.countDocuments({ status: "pending" });
+    const approvedClubs = await clubsCollection.countDocuments({ status: "approved" });
+    const rejectedClubs = await clubsCollection.countDocuments({ status: "rejected" });
+
+    // 3. MEMBERSHIPS
+    const totalMemberships = await clubMembershipCollection.countDocuments();
+
+    // 4. EVENTS
+    const totalEvents = await eventsCollection.countDocuments();
+
+    // 5. EVENT REGISTRATIONS
+    const totalEventRegistrations = await eventRegistrationsCollection.countDocuments();
+
+    // 6. TOTAL PAYMENTS (AMOUNT SUM)
+    const paymentStats = await paymentCollection.aggregate([
+      { $group: { _id: null, totalAmount: { $sum: "$amount" }, count: { $sum: 1 } } }
+    ]).toArray();
+
+    const totalPaymentAmount = paymentStats[0]?.totalAmount || 0;
+    const totalPayments = paymentStats[0]?.count || 0;
+
+    // FINAL RESPONSE
+    res.send({
+      users: {
+        total: totalUsers
+      },
+      clubs: {
+        total: totalClubs,
+        pending: pendingClubs,
+        approved: approvedClubs,
+        rejected: rejectedClubs
+      },
+      memberships: {
+        total: totalMemberships
+      },
+      events: {
+        total: totalEvents
+      },
+      eventRegistrations: {
+        total: totalEventRegistrations
+      },
+      payments: {
+        totalPayments,
+        totalAmount: totalPaymentAmount
+      }
+    });
+
+  } catch (error) {
+    console.error("Admin Overview Error:", error);
+    res.status(500).send({ message: "Server Error" });
+  }
+});
 
 
 
