@@ -1155,6 +1155,79 @@ app.get('/club-manager-overview', async (req, res) => {
 
 
 
+// /clubs-managed?managerEmail=ayansujonbd@gmail.com&role=manager
+app.get('/clubs-managed', async (req, res) => {
+  try {
+    const managerEmail = req.query.managerEmail;
+
+    if (!managerEmail) {
+      return res.status(400).send({ message: "managerEmail is required" });
+    }
+
+    // STEP 1: Find manager user
+    const managerUser = await usersCollection.findOne({ email: managerEmail });
+
+    if (!managerUser) {
+      return res.status(404).send({ message: "User not found" });
+    }
+
+    if (managerUser.role !== "manager") {
+      return res.status(403).send({
+        message: "User found but role is not manager",
+        foundRole: managerUser.role
+      });
+    }
+
+    // STEP 2: Find all clubs managed by this manager
+    const managedClubs = await clubsCollection.find({ managerEmail }).toArray();
+
+    if (!managedClubs.length) {
+      return res.status(404).send({ message: "No clubs found for this managerEmail" });
+    }
+
+    // FINAL RESPONSE: return only clubs
+    res.send({
+      manager: {
+        email: managerEmail,
+        name: managerUser.name,
+        role: managerUser.role
+      },
+      clubs: managedClubs
+    });
+
+  } catch (error) {
+    console.error("Club Manager Overview Error:", error);
+    res.status(500).send({ message: "Server Error" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
