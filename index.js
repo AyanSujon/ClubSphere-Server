@@ -405,12 +405,13 @@ app.patch('/payment-success', async (req, res) => {
       const paymentInfo = {
         userEmail: session.metadata.userEmail,
         amount: session.metadata.amount,
-        eventId: session.metadata.eventId,
-        eventTitle: session.metadata.eventTitle,
+        paymentType: "event",
         clubId: session.metadata.clubId,
+        eventId: session.metadata.eventId,
         transactionId: sessionId,
         status: "paid",
-        paidAt: new Date(),
+        createdAt: new Date(),
+        eventTitle: session.metadata.eventTitle,
       };
 
       // Upsert Payment (insert if not exists)
@@ -898,6 +899,61 @@ app.get('/users', async (req, res) => {
     
 
 
+// Payment get api:
+app.get('/payments', async (req, res) => {
+  try {
+    const {
+      userEmail,
+      clubId,
+      eventId,
+      status,
+      paymentType,
+      minAmount,
+      maxAmount,
+      startDate,
+      endDate
+    } = req.query;
+
+    let filter = {};
+
+    // Filters
+    if (userEmail) filter.userEmail = userEmail;
+    if (clubId) filter.clubId = clubId;
+    if (eventId) filter.eventId = eventId;
+    if (status) filter.status = status;
+    if (paymentType) filter.paymentType = paymentType;
+
+    // Amount range
+    if (minAmount || maxAmount) {
+      filter.amount = {};
+      if (minAmount) filter.amount.$gte = Number(minAmount);
+      if (maxAmount) filter.amount.$lte = Number(maxAmount);
+    }
+
+    // Date range
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    }
+
+    // Fetch and sort latest first
+    const payments = await paymentCollection
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send(payments);
+
+  } catch (error) {
+    console.error("Payments Fetch Error:", error);
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch payments",
+      error: error.message,
+    });
+  }
+});
 
 
 
