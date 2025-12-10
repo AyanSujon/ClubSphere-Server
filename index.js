@@ -962,25 +962,190 @@ app.get('/payments', async (req, res) => {
 
 
 
+// ============================================ Club Manager Dashboard Data ========================================
+
+// app.get('/club-manager-overview', async (req, res) => {
+//   try {
+//     const managerEmail = req.query.managerEmail;
+//     const userRole = req.query.role; // example → "member"
+
+//     if (!managerEmail) {
+//       return res.status(400).send({ message: "managerEmail is required" });
+//     }
+
+//     // 1. FIND CLUBS MANAGED BY THIS MANAGER
+//     const managedClubs = await clubsCollection
+//       .find({ managerEmail })
+//       .toArray();
+
+//     const clubIds = managedClubs.map(c => c._id.toString());
+
+//     const totalClubs = managedClubs.length;
+
+//     // 2. FIND ALL MEMBERS IN THESE CLUBS
+//     const clubMembers = await clubMembershipCollection
+//       .find({ clubId: { $in: clubIds } })
+//       .toArray();
+
+//     const memberEmails = clubMembers.map(m => m.userEmail);
+
+//     // 3. FILTER USERS BY ROLE (e.g. member / manager / admin)
+//     let totalMembers = 0;
+
+//     if (userRole) {
+//       totalMembers = await usersCollection.countDocuments({
+//         email: { $in: memberEmails },
+//         role: userRole
+//       });
+//     } else {
+//       totalMembers = memberEmails.length;
+//     }
+
+//     // 4. TOTAL EVENTS CREATED BY THESE CLUBS
+//     const totalEvents = await eventsCollection.countDocuments({
+//       clubId: { $in: clubIds }
+//     });
+
+//     // 5. TOTAL PAYMENTS FOR THESE CLUBS
+//     const paymentStats = await paymentCollection.aggregate([
+//       { $match: { clubId: { $in: clubIds }, status: "paid" } },
+//       {
+//         $group: {
+//           _id: null,
+//           totalAmount: { $sum: "$amount" },
+//           totalPayments: { $sum: 1 }
+//         }
+//       }
+//     ]).toArray();
+
+//     const totalPayments = paymentStats[0]?.totalPayments || 0;
+//     const totalPaymentAmount = paymentStats[0]?.totalAmount || 0;
+
+//     // FINAL RESPONSE
+//     res.send({
+//       managerEmail,
+//       filterRole: userRole || "none",
+//       clubs: {
+//         total: totalClubs
+//       },
+//       members: {
+//         total: totalMembers
+//       },
+//       events: {
+//         total: totalEvents
+//       },
+//       payments: {
+//         totalPayments,
+//         totalAmount: totalPaymentAmount
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error("Club Manager Overview Error:", error);
+//     res.status(500).send({ message: "Server Error" });
+//   }
+// });
 
 
 
 
 
+// club-manager-overview?managerEmail=ayansujonbd@gmail.com&role=manager
+app.get('/club-manager-overview', async (req, res) => {
+  try {
+    const managerEmail = req.query.managerEmail;
+    const filterRole = req.query.role; // optional (member/manager/etc.)
 
+    if (!managerEmail) {
+      return res.status(400).send({ message: "managerEmail is required" });
+    }
 
+    // STEP 1: Find clubs where this email is managerEmail
+    const managedClubs = await clubsCollection.find({ managerEmail }).toArray();
 
+    if (managedClubs.length === 0) {
+      return res.status(404).send({ message: "No clubs found for this managerEmail" });
+    }
 
+    // STEP 2: Match email with users collection
+    const managerUser = await usersCollection.findOne({ email: managerEmail });
 
+    if (!managerUser) {
+      return res.status(404).send({ message: "User not found in users collection" });
+    }
 
+    // STEP 3: Must be manager role
+    if (managerUser.role !== "manager") {
+      return res.status(403).send({
+        message: "User found but role is not manager",
+        foundRole: managerUser.role
+      });
+    }
 
+    // Club IDs for further stats
+    const clubIds = managedClubs.map(c => c._id.toString());
 
+    // STEP 4: Members of these clubs
+    const clubMembers = await clubMembershipCollection.find({
+      clubId: { $in: clubIds }
+    }).toArray();
 
+    const memberEmails = clubMembers.map(m => m.userEmail);
 
+    // Filter by role (optional)
+    let totalMembers = 0;
 
+    if (filterRole) {
+      totalMembers = await usersCollection.countDocuments({
+        email: { $in: memberEmails },
+        role: filterRole
+      });
+    } else {
+      totalMembers = memberEmails.length;
+    }
 
+    // Total events
+    const totalEvents = await eventsCollection.countDocuments({
+      clubId: { $in: clubIds }
+    });
 
+    // Payments
+    const paymentStats = await paymentCollection.aggregate([
+      { $match: { clubId: { $in: clubIds }, status: "paid" } },
+      { $group: { _id: null, totalAmount: { $sum: "$amount" }, totalPayments: { $sum: 1 } } }
+    ]).toArray();
 
+    const totalPayments = paymentStats[0]?.totalPayments || 0;
+    const totalPaymentAmount = paymentStats[0]?.totalAmount || 0;
+
+    // FINAL RESPONSE
+    res.send({
+      manager: {
+        email: managerEmail,
+        name: managerUser.name,
+        role: managerUser.role
+      },
+      clubs: {
+        total: managedClubs.length
+      },
+      members: {
+        total: totalMembers,
+        filterRole: filterRole || "none"
+      },
+      events: {
+        total: totalEvents
+      },
+      payments: {
+        totalPayments,
+        totalAmount: totalPaymentAmount
+      }
+    });
+
+  } catch (error) {
+    console.error("Club Manager Overview Error:", error);
+    res.status(500).send({ message: "Server Error" });
+  }
+});
 
 
 
