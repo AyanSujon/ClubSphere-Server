@@ -1156,7 +1156,7 @@ app.get('/club-manager-overview', async (req, res) => {
 
 
 // /clubs-managed?managerEmail=ayansujonbd@gmail.com&role=manager
-app.get('/clubs-managed', async (req, res) => {
+app.get('/my-clubs', async (req, res) => {
   try {
     const managerEmail = req.query.managerEmail;
 
