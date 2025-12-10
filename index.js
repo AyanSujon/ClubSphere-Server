@@ -1213,10 +1213,59 @@ app.get('/my-clubs', async (req, res) => {
 
 
 
+// GET SINGLE CLUB BY ID (Optional: Manager Only)
+app.get("/clubs/:id", async (req, res) => {
+  try {
+    const clubId = req.params.id; // Club ID from URL
+    const managerEmail = req.query.email; // Optional: manager email query param
 
+    if (!clubId) {
+      return res.status(400).json({
+        success: false,
+        message: "Club ID is required",
+      });
+    }
 
+    // If you want to restrict access to manager only
+    if (!managerEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Manager email query parameter is required",
+      });
+    }
 
+    // 1️⃣ Find the club
+    const club = await clubsCollection.findOne({ _id: new ObjectId(clubId) });
 
+    if (!club) {
+      return res.status(404).json({
+        success: false,
+        message: "Club not found",
+      });
+    }
+
+    // 2️⃣ Optional: verify if the requester is the manager
+    if (club.managerEmail !== managerEmail) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to view this club",
+      });
+    }
+
+    // 3️⃣ Return the club
+    res.status(200).json({
+      success: true,
+      data: club,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+});
 
 
 
