@@ -1273,6 +1273,107 @@ app.get("/clubs/:id", async (req, res) => {
 
 
 
+// API: GET /club-members
+app.get('/club-members', async (req, res) => {
+  try {
+    const { managerEmail, role } = req.query;
+
+    if (!managerEmail || !role) {
+      return res.status(400).json({ success: false, message: 'managerEmail and role are required' });
+    }
+
+    // Check if user exists and role is manager
+    const user = await usersCollection.findOne({ email: managerEmail, role: role });
+
+    if (!user) {
+      return res.status(403).json({ success: false, message: 'Unauthorized or user not found' });
+    }
+
+    // Fetch club memberships managed by this manager
+    const memberships = await clubMembershipCollection.find({ managerEmail }).toArray();
+
+    res.status(200).json({ success: true, data: memberships });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
+
+
+
+
+
+// PATCH /club-members/:id/expire
+app.patch("/club-members/:id/expire", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { expireDate } = req.body;
+
+    if (!expireDate) {
+      return res.status(400).json({ success: false, message: "expireDate is required" });
+    }
+
+    const expireDateObj = new Date(expireDate);
+    const now = new Date();
+
+    // Determine the status based on expire date
+    const status = expireDateObj < now ? "expired" : "active";
+
+    const result = await clubMembershipCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { expireDate: expireDateObj, status } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ success: false, message: "Member not found" });
+    }
+
+    res.status(200).json({ success: true, message: "Membership expiration updated" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+
+
+// DELETE /club-members/:id
+app.delete("/club-members/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await clubMembershipCollection.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ success: false, message: "Member not found" });
+    }
+
+    res.status(200).json({ success: true, message: "Membership deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
