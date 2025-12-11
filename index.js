@@ -1525,7 +1525,27 @@ app.get('/member/my-clubs', async (req, res) => {
 });
 
 
+// API endpoint to get user's clubs
+app.get('/member/my-events', async (req, res) => {
+  try {
+    const { userEmail,  role} = req.query;
 
+    if (!userEmail) {
+      return res.status(400).json({ error: 'userEmail is required' });
+    }
+    if (!role) {
+      return res.status(400).json({ error: 'role is required' });
+    }
+
+    // Fetch memberships for this user
+    const clubs = await eventRegistrationsCollection.find({ userEmail }).toArray();
+
+    res.json(clubs);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 
 
