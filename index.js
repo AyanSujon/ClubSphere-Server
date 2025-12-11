@@ -1362,9 +1362,27 @@ app.delete("/club-members/:id", async (req, res) => {
 
 
 
+// Events Management related api 
 
+// GET /events?managerEmail=ayansujonbd@gmail.com
+app.get("/events", async (req, res) => {
+  const { managerEmail } = req.query;
 
+  if (!managerEmail) {
+    return res.status(400).json({ message: "managerEmail query is required" });
+  }
 
+  try {
+    const events = await eventsCollection
+      .find({ managerEmail: managerEmail })
+      .toArray();
+
+    res.json(events);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch events", error: err });
+  }
+});
 
 
 
