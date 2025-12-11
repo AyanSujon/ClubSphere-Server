@@ -8,7 +8,7 @@ const cors = require('cors');
 
 const app = express()
 require('dotenv').config()
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const stripe = require('stripe')(process.env.STRIPE_SECRET);
 
 const port = process.env.PORT || 3000
@@ -1418,6 +1418,77 @@ app.get("/events", async (req, res) => {
 
 
 
+
+
+
+// ===========================================( Member Overview ) ==============================================
+
+
+
+app.get("/member-overview", async (req, res) => {
+  try {
+    const { userEmail, role } = req.query;
+
+    if (!userEmail || !role) {
+      return res.status(400).json({ error: "Missing userEmail or role" });
+    }
+
+    // Verify user
+    const user = await db.collection("users").findOne({ email: userEmail, role });
+    if (!user) {
+      return res.status(403).json({ error: "Unauthorized or user not found" });
+    }
+
+    // Get event registrations for this user
+    const registrations = await db
+      .collection("eventRegistrations")
+      .find({ userEmail })
+      .toArray();
+
+    const totalEventsRegistered = registrations.length;
+
+    // Get unique clubIds from registrations (as numbers/strings)
+    const uniqueClubIds = [...new Set(registrations.map((r) => r.clubId))];
+
+    // Find clubs whose "clubId" matches (use your clubId field in clubs)
+    const clubs = await db
+      .collection("clubs")
+      .find({ clubId: { $in: uniqueClubIds.map((id) => Number(id)) } })
+      .toArray();
+
+    const totalClubsJoined = clubs.length;
+
+    // Get upcoming events from these clubs
+    const upcomingEvents = await db
+      .collection("events")
+      .find({
+        clubId: { $in: uniqueClubIds.map((id) => Number(id)) },
+        eventDate: { $gte: new Date() },
+      })
+      .project({ title: 1, eventDate: 1, location: 1, clubId: 1 })
+      .toArray();
+
+    // Map clubName
+    const eventsWithClubName = upcomingEvents.map((event) => {
+      const club = clubs.find((c) => Number(c.clubId) === Number(event.clubId));
+      return {
+        title: event.title,
+        date: event.eventDate,
+        location: event.location,
+        clubName: club ? club.clubName : "",
+      };
+    });
+
+    res.json({
+      totalClubsJoined,
+      totalEventsRegistered,
+      upcomingEvents: eventsWithClubName,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 
 
