@@ -1499,6 +1499,41 @@ app.get("/member-overview", async (req, res) => {
 
 
 
+// My Clubs API
+// http://localhost:3000/member/my-clubs?userEmail=ayansujonbd@gmail.com&role=member
+
+// API endpoint to get user's clubs
+app.get('/member/my-clubs', async (req, res) => {
+  try {
+    const { userEmail,  role} = req.query;
+
+    if (!userEmail) {
+      return res.status(400).json({ error: 'userEmail is required' });
+    }
+    if (!role) {
+      return res.status(400).json({ error: 'role is required' });
+    }
+
+    // Fetch memberships for this user
+    const clubs = await clubMembershipCollection.find({ userEmail }).toArray();
+
+    res.json(clubs);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1545,4 +1580,3 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
-
