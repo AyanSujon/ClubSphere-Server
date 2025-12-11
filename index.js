@@ -1375,7 +1375,7 @@ app.get("/events", async (req, res) => {
   try {
     const events = await eventsCollection
       .find({ managerEmail: managerEmail })
-      .toArray();
+      .toArray(); // collection থেকে array আকারে আনা
 
     res.json(events);
   } catch (err) {
@@ -1391,7 +1391,27 @@ app.get("/events", async (req, res) => {
 
 
 
+  app.get('/event-registrations', async (req, res) => {
+      const { managerEmail, role } = req.query;
 
+      if (!managerEmail || !role) {
+        return res.status(400).json({ message: 'managerEmail and role are required' });
+      }
+
+      // Check if user exists and has role "manager"
+      const manager = await usersCollection.findOne({ email: managerEmail, role: role });
+      if (!manager) {
+        return res.status(403).json({ message: 'Access denied. Not a manager.' });
+      }
+
+      // If manager exists, get all event registrations
+      const registrations = await eventRegistrationsCollection
+        .find({})
+        .project({ _id: 0, userEmail: 1, status: 1, registeredAt: 1 }) // only show required fields
+        .toArray();
+
+      res.json(registrations);
+    });
 
 
 
