@@ -1390,7 +1390,7 @@ app.get("/events", async (req, res) => {
 
 
 
-
+// /event-registrations?managerEmail=ayansujonbd@gmail.com&role=manager
   app.get('/event-registrations', async (req, res) => {
       const { managerEmail, role } = req.query;
 
