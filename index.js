@@ -21,6 +21,40 @@ app.use(express.json())
 
 
 
+
+
+
+const verifYFBToken = (req, res, next)=>{
+  console.log("headers in the middleware", req.headers.authorization)
+  const token = req.headers.authorization;
+  if(!token){
+    return res.status(401).send({message: `unauthorized access`})
+
+  }
+  
+  
+  next();
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.tachgq7.mongodb.net/assignment-B12A11?appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -894,13 +928,51 @@ app.get('/users', async (req, res) => {
     })
 
 
+app.patch('/users/:id/role', async (req, res) => {
+
+  const id = req.params.id;
+  const { role } = req.body;
+
+  const result = await usersCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { role } }
+  );
+
+  res.send({ modifiedCount: result.modifiedCount });
+});
+
+
+
+
+// app.patch('/users/:id/role', async (req, res) => {
+//   const id = req.params.id;
+//   const { role } = req.body;
+
+//   let filter = {};
+
+//   try {
+//     filter = { _id: new ObjectId(id) };
+//   } catch {
+//     filter = { _id: id };  // fallback if id is string
+//   }
+
+//   const result = await usersCollection.updateOne(filter, {
+//     $set: { role }
+//   });
+
+//   res.send({ modifiedCount: result.modifiedCount });
+// });
+
+
+
+
 
 
     
 
 
 // Payment get api:
-app.get('/payments', async (req, res) => {
+app.get('/payments', verifYFBToken, async (req, res) => {
   try {
     const {
       userEmail,
