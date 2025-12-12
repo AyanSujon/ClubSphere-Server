@@ -1196,7 +1196,7 @@ app.get('/club-manager-overview', async (req, res) => {
     }
 
     // STEP 3: Must be manager role
-    if (managerUser.role !== "manager") {
+    if (managerUser.role !== "clubManager") {
       return res.status(403).send({
         message: "User found but role is not manager",
         foundRole: managerUser.role
