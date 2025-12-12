@@ -32,9 +32,7 @@ const verifYFBToken = (req, res, next)=>{
 
   }
   
-  
   next();
-
 
 
 }
@@ -1006,7 +1004,7 @@ app.patch('/users/:id/role', async (req, res) => {
 
 
 // Payment get api:
-app.get('/payments', verifYFBToken, async (req, res) => {
+app.get('/payments', async (req, res) => {
   try {
     const {
       userEmail,
@@ -1277,7 +1275,7 @@ app.get('/my-clubs', async (req, res) => {
       return res.status(404).send({ message: "User not found" });
     }
 
-    if (managerUser.role !== "manager") {
+    if (managerUser.role !== "clubManager") {
       return res.status(403).send({
         message: "User found but role is not manager",
         foundRole: managerUser.role
@@ -1391,9 +1389,9 @@ app.get('/club-members', async (req, res) => {
     // Check if user exists and role is manager
     const user = await usersCollection.findOne({ email: managerEmail, role: role });
 
-    if (!user) {
-      return res.status(403).json({ success: false, message: 'Unauthorized or user not found' });
-    }
+    // if (!user) {
+    //   return res.status(403).json({ success: false, message: 'Unauthorized or user not found' });
+    // }
 
     // Fetch club memberships managed by this manager
     const memberships = await clubMembershipCollection.find({ managerEmail }).toArray();
