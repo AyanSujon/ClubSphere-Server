@@ -776,6 +776,9 @@ app.patch('/club-membership-payment-success', async (req, res) => {
 
 // ============================================ Admin Dashboard Data ========================================
 
+
+
+
 // app.get('/admin-overview', async (req, res) => {
 //   try {
 
@@ -790,6 +793,18 @@ app.patch('/club-membership-payment-success', async (req, res) => {
 
 //     // 3. MEMBERSHIPS
 //     const totalMemberships = await clubMembershipCollection.countDocuments();
+
+//     //  MEMBERSHIPS PER CLUB
+//     const clubs = await clubsCollection.find().toArray();
+//     const membershipsPerClub = await Promise.all(
+//       clubs.map(async (club) => {
+//         const count = await clubMembershipCollection.countDocuments({ clubId: club._id.toString() });
+//         return {
+//           clubName: club.name,
+//           memberships: count,
+//         };
+//       })
+//     );
 
 //     // 4. EVENTS
 //     const totalEvents = await eventsCollection.countDocuments();
@@ -819,6 +834,7 @@ app.patch('/club-membership-payment-success', async (req, res) => {
 //       memberships: {
 //         total: totalMemberships
 //       },
+//       membershipsPerClub, // add memberships per club here
 //       events: {
 //         total: totalEvents
 //       },
@@ -836,11 +852,6 @@ app.patch('/club-membership-payment-success', async (req, res) => {
 //     res.status(500).send({ message: "Server Error" });
 //   }
 // });
-
-
-
-
-
 
 
 
@@ -878,8 +889,15 @@ app.get('/admin-overview', async (req, res) => {
     const totalEventRegistrations = await eventRegistrationsCollection.countDocuments();
 
     // 6. TOTAL PAYMENTS (AMOUNT SUM)
+    // Fix: convert amount to number and handle empty collection
     const paymentStats = await paymentCollection.aggregate([
-      { $group: { _id: null, totalAmount: { $sum: "$amount" }, count: { $sum: 1 } } }
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: { $toDouble: "$amount" } }, // ensure numeric sum
+          count: { $sum: 1 }
+        }
+      }
     ]).toArray();
 
     const totalPaymentAmount = paymentStats[0]?.totalAmount || 0;
@@ -887,25 +905,17 @@ app.get('/admin-overview', async (req, res) => {
 
     // FINAL RESPONSE
     res.send({
-      users: {
-        total: totalUsers
-      },
+      users: { total: totalUsers },
       clubs: {
         total: totalClubs,
         pending: pendingClubs,
         approved: approvedClubs,
         rejected: rejectedClubs
       },
-      memberships: {
-        total: totalMemberships
-      },
-      membershipsPerClub, // add memberships per club here
-      events: {
-        total: totalEvents
-      },
-      eventRegistrations: {
-        total: totalEventRegistrations
-      },
+      memberships: { total: totalMemberships },
+      membershipsPerClub,
+      events: { total: totalEvents },
+      eventRegistrations: { total: totalEventRegistrations },
       payments: {
         totalPayments,
         totalAmount: totalPaymentAmount
@@ -919,6 +929,30 @@ app.get('/admin-overview', async (req, res) => {
 });
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // User get api
 app.get('/users', async (req, res) => {
       const cursor = usersCollection.find();
@@ -927,7 +961,7 @@ app.get('/users', async (req, res) => {
       // console.log(result);
     })
 
-
+// User role change api 
 app.patch('/users/:id/role', async (req, res) => {
 
   const id = req.params.id;
