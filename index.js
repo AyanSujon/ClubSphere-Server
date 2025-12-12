@@ -108,6 +108,23 @@ async function run() {
 
 
 
+// get User Role verification for Route 
+app.get('/users/:email/role', async (req, res) => {
+  try {
+    const email = req.params.email;
+    const query = { email };
+    const user = await usersCollection.findOne(query);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.send({ role: user.role || 'member' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
 
 
     // Recently Added Clubs API
