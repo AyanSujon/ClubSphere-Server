@@ -11,7 +11,15 @@ require('dotenv').config()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const stripe = require('stripe')(process.env.STRIPE_SECRET);
 
+const admin = require("firebase-admin");
+
 const port = process.env.PORT || 3000
+
+const serviceAccount = require("./assignment-b12a11-firebase-adminsdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 
 // Middleware
@@ -23,20 +31,24 @@ app.use(express.json())
 
 
 
+const verifyFBToken = async (req, res, next) => {
+    const authHeader = req.headers.authorization; 
+    console.log(authHeader)
+    if (!authHeader) {
+        return res.status(401).send({ message: 'unauthorized access' });
+    }
 
-const verifYFBToken = (req, res, next)=>{
-  console.log("headers in the middleware", req.headers.authorization)
-  const token = req.headers.authorization;
-  if(!token){
-    return res.status(401).send({message: `unauthorized access`})
-
-  }
-  
-  next();
-
-
-}
-
+    try {
+        const idToken = authHeader.split(' ')[1]; 
+        const decoded = await admin.auth().verifyIdToken(idToken);
+        console.log('decoded token:', decoded);
+        req.decoded_email = decoded.email; 
+        next();
+    } catch (err) {
+        console.error('Token verification failed:', err);
+        return res.status(401).send({ message: 'unauthorized access' });
+    }
+};
 
 
 
@@ -82,12 +94,6 @@ async function run() {
 
 
 
-    // app.post('/register', async(req, res)=>{
-    //   console.log(req.dody , "request");
-    // })
-
-
-
     app.post('/users', async (req, res) => {
       const user = req.body;
       // user.role = 'user';
@@ -109,12 +115,12 @@ async function run() {
 
 
 // get User Role verification for Route 
-app.get('/users/:email/role', async (req, res) => {
+app.get('/users/:email/role', verifyFBToken, async (req, res) => {
   try {
     const email = req.params.email;
     const query = { email };
     const user = await usersCollection.findOne(query);
-
+    console.log(user, query)
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
@@ -761,7 +767,7 @@ app.get('/payments', async (req, res) => {
 
 
 // club-manager-overview?managerEmail=ayansujonbd@gmail.com&role=manager
-app.get('/club-manager-overview', async (req, res) => {
+app.get('/club-manager-overview', verifyFBToken,  async (req, res) => {
   try {
     const managerEmail = req.query.managerEmail;
     const filterRole = req.query.role; // optional (member/manager/etc.)
