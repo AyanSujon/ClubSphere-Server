@@ -1127,11 +1127,6 @@ app.get("/events", async (req, res) => {
 
 
 
-
-
-
-
-
 // Create Event api for mabager dashboard;
 // // POST create event
 
@@ -1141,6 +1136,30 @@ app.get("/events", async (req, res) => {
             const result = await eventsCollection.insertOne(newEvent);
             res.send(result);
         })
+
+
+
+
+
+
+
+// POST methord Club 
+        app.post('/clubs', async (req, res) => {
+            const newClub = req.body;
+
+            const result = await clubsCollection.insertOne(newClub);
+            res.send(result);
+        })
+
+
+
+
+
+
+
+
+
+
 
 
 
