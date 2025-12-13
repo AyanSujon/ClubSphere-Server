@@ -1131,6 +1131,26 @@ app.get("/events", async (req, res) => {
 
 
 
+
+// Create Event api for mabager dashboard;
+// // POST create event
+
+        app.post('/events', async (req, res) => {
+            const newEvent = req.body;
+
+            const result = await eventsCollection.insertOne(newEvent);
+            res.send(result);
+        })
+
+
+
+
+
+
+
+
+
+
 // ===========================================( Member Overview ) ==============================================
 
 
