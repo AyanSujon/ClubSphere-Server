@@ -1157,6 +1157,29 @@ app.get("/events", async (req, res) => {
 
 
 
+// // edit event api
+
+
+app.patch('/events/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { _id, ...eventInfo } = req.body; // remove _id if present
+
+    const query = { _id: new ObjectId(id) };
+    const updatedDoc = { $set: eventInfo };
+
+    const result = await eventsCollection.updateOne(query, updatedDoc);
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    res.json({ message: 'Event updated successfully', result });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Failed to update event', error });
+  }
+});
 
 
 
@@ -1337,8 +1360,6 @@ app.get('/member/my-payments', async (req, res) => {
   }
 }
 run().catch(console.dir);
-
-
 
 
 
