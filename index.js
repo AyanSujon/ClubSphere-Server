@@ -1181,6 +1181,27 @@ app.patch('/events/:id', async (req, res) => {
   }
 });
 
+// Event delete function added on clubManager dashboard :
+        app.delete('/events/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+
+            const result = await eventsCollection.deleteOne(query);
+            res.send(result);
+        })
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
